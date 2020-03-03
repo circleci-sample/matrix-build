@@ -31,9 +31,6 @@ jobs:
       - install_deps
       - test
       - build
-      - store_artifacts:
-          path: version.txt
-          prefix: node-8
 
   "node-10":
     docker:
@@ -42,9 +39,10 @@ jobs:
       - install_deps
       - test
       - build
-      - store_artifacts:
-          path: version.txt
-          prefix: node-10
+      - persist_to_workspace:
+          root: ./
+          paths:
+            - version.txt
 
   "node-12":
     docker:
@@ -53,15 +51,14 @@ jobs:
       - install_deps
       - test
       - build
-      - store_artifacts:
-          path: version.txt
-          prefix: node-12
 
   deploy:
     docker:
       - image: circleci/node:10
     steps:
       - checkout
+      - attach_workspace:
+          at: ./
       - run: npm run deploy
 
 workflows:

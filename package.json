@@ -6,7 +6,7 @@
   "scripts": {
     "test": "echo \"Test passed\"",
     "build": "node -v > version.txt",
-    "deploy": "echo \"Successfully deployed :tada:\""
+    "deploy": "cat version.txt && echo \"Successfully deployed :tada:\""
   },
   "repository": {
     "type": "git",
