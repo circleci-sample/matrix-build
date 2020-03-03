@@ -1,0 +1,21 @@
+{
+  "name": "matrix-build",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Test passed\"",
+    "build": "node -v > version.txt",
+    "deploy": "echo \"Successfully deployed :tada:\""
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/uraway/matrix-build.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/uraway/matrix-build/issues"
+  },
+  "homepage": "https://github.com/uraway/matrix-build#readme"
+}

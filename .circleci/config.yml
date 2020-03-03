@@ -1,0 +1,64 @@
+version: 2.1
+
+commands:
+  install_deps:
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - v1-npm-{{ .Branch }}-{{ .checksum "package-lock.json" }}
+            - v1-npm-{{ .Branch }}-
+            - v1-npm-
+      - run: npm install
+      - save_cache:
+            paths:
+              - node_modules
+            key: v1-npm-{{ .Branch }}-{{ .checksum "package-lock.json" }}
+
+  test:
+    steps:
+      - run: npm run test
+
+  build:
+    steps:
+      - run: npm run build
+
+jobs:
+  "node-8":
+    docker:
+      - image: circleci/node:8
+    steps:
+      - install_deps
+      - test
+      - build
+      - store_artifacts:
+          path: version.txt
+          prefix: node-8
+
+  "node-10":
+    docker:
+      - image: circleci/node:10
+    steps:
+      - install_deps
+      - test
+      - build
+      - store_artifacts:
+          path: version.txt
+          prefix: node-10
+
+  deploy:
+    docker:
+      - image: circleci/node:10
+    steps:
+      - run: npm run deploy
+
+workflows:
+  version: 2
+  matrix:
+    jobs:
+      - "node-8"
+      - "node-10"
+      - deploy:
+          requires:
+            - "node-8"
+            - "node-10"
