@@ -6,14 +6,14 @@ commands:
       - checkout
       - restore_cache:
           keys:
-            - v1-npm-{{ .Branch }}-{{ .checksum "package-lock.json" }}
+            - v1-npm-{{ .Branch }}-{{ checksum "package-lock.json" }}
             - v1-npm-{{ .Branch }}-
             - v1-npm-
       - run: npm install
       - save_cache:
           paths:
             - node_modules
-          key: v1-npm-{{ .Branch }}-{{ .checksum "package-lock.json" }}
+          key: v1-npm-{{ .Branch }}-{{ checksum "package-lock.json" }}
 
   test:
     steps:
