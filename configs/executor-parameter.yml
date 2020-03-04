@@ -38,14 +38,13 @@ jobs:
 
       - run: npm run build
 
-      - store_artifacts:
-          path: version.txt
-          prefix: node-<< parameters.tag >>
-
   deploy:
-    docker:
-      - image: circleci/node:10
+    <<: *executor-template
+
     steps:
+      - checkout
+      - attach_workspace:
+          at: ./
       - run: npm run deploy
 
 workflows:
@@ -60,6 +59,10 @@ workflows:
           name: node-10-test
           tag: "10"
 
+      - test:
+          name: node-12-test
+          tag: "12"
+
       - build:
           name: node-8-build
           tag: "8"
@@ -68,9 +71,16 @@ workflows:
           name: node-10-build
           tag: "10"
 
+      - build:
+          name: node-12-build
+          tag: "12"
+
       - deploy:
+          tag: "10"
           requires:
             - node-8-test
             - node-8-build
             - node-10-test
             - node-10-build
+            - node-12-test
+            - node-12-build
