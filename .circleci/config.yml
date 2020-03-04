@@ -24,33 +24,55 @@ commands:
       - run: npm run build
 
 jobs:
-  "node-8":
+  "node-8-test":
     docker:
       - image: circleci/node:8
     steps:
       - install_deps
       - test
+
+  "node-8-build":
+    docker:
+      - image: circleci/node:8
+    steps:
+      - install_deps
       - build
 
-  "node-10":
+  "node-10-test":
     docker:
       - image: circleci/node:10
     steps:
       - install_deps
       - test
-      - build
       - persist_to_workspace:
           root: ./
           paths:
             - version.txt
 
-  "node-12":
+  "node-10-build":
+    docker:
+      - image: circleci/node:10
+    steps:
+      - install_deps
+      - build
+      - persist_to_workspace:
+          root: ./
+          paths:
+            - lib
+
+  "node-12-test":
+    docker:
+      - image: circleci/node:12
+    steps:
+      - install_deps
+      - build
+
+  "node-12-build":
     docker:
       - image: circleci/node:12
     steps:
       - install_deps
       - test
-      - build
 
   deploy:
     docker:
@@ -65,11 +87,17 @@ workflows:
   version: 2
   matrix:
     jobs:
-      - "node-8"
-      - "node-10"
-      - "node-12"
+      - "node-8-test"
+      - "node-8-build"
+      - "node-10-test"
+      - "node-10-build"
+      - "node-12-test"
+      - "node-12-build"
       - deploy:
           requires:
-            - "node-8"
-            - "node-10"
-            - "node-12"
+            - "node-8-test"
+            - "node-8-build"
+            - "node-10-test"
+            - "node-10-build"
+            - "node-12-test"
+            - "node-12-build"
