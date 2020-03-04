@@ -61,14 +61,14 @@ jobs:
       - image: circleci/node:12
     steps:
       - install_deps
-      - build
+      - test
 
   "node-12-build":
     docker:
       - image: circleci/node:12
     steps:
       - install_deps
-      - test
+      - build
 
   deploy:
     docker:
