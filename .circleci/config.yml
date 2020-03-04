@@ -5,7 +5,7 @@ executor-template: &executor-template
     tag:
       type: string
   docker:
-    - image: circleci/node-<< parameters.tag >>
+    - image: circleci/node:<< parameters.tag >>
 
 commands:
   install_deps:
