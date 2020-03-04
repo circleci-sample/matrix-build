@@ -44,10 +44,6 @@ jobs:
     steps:
       - install_deps
       - test
-      - persist_to_workspace:
-          root: ./
-          paths:
-            - version.txt
 
   "node-10-build":
     docker:
