@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Test passed\"",
-    "build": "mkdir -p && node -v > lib/version.txt",
+    "build": "mkdir -p lib && node -v > lib/version.txt",
     "deploy": "cat lib/version.txt && echo \"Successfully deployed :tada:\""
   },
   "repository": {
