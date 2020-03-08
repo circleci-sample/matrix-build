@@ -72,6 +72,11 @@ jobs:
             - attach_workspace:
                 at: ./
             - run: npm run deploy
+      - unless:
+          condition: << pipeline.parameters.run-deploy-job >>
+          steps:
+            - run: echo "No deployment on << pipeline.parameters.tag >>"
+
 
   trigger-jobs:
     machine:
