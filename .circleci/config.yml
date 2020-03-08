@@ -1,23 +1,9 @@
-parameters:
-  tag:
-    default: '10'
-    type: string
-  run-main-workflow:
-    default: false
-    type: boolean
-  run-deploy-job:
-    default: false
-    type: boolean
-
-executors:
-  node:
-    docker:
-      - image: circleci/node:<< pipeline.parameters.tag >>
-
 version: 2.1
+
 jobs:
   install_deps:
-    executor: node
+    docker:
+      - image: circleci/node:10
     steps:
       - checkout
       - restore_cache:
@@ -35,88 +21,66 @@ jobs:
           paths:
             - node_modules
 
-  test:
-    executor: node
+  "node-8":
+    docker:
+      - image: circleci/node:8
     steps:
       - checkout
       - attach_workspace:
           at: ./
-      - run: npm run test
-
-  build:
-    executor: node
-
-    steps:
-      - checkout
-      - attach_workspace:
-          at: ./
+      - run: npm test
       - run: npm run build
 
-      - when:
-          condition: << pipeline.parameters.run-deploy-job >>
-          steps:
-            - persist_to_workspace:
-                root: ./
-                paths:
-                  - lib
-                  - node_modules
+  "node-10":
+    docker:
+      - image: circleci/node:10
+    steps:
+      - checkout
+      - attach_workspace:
+          at: ./
+      - run: npm test
+      - run: npm run build
+      - persist_to_workspace: # Node v10でビルドした成果物を永続化
+          root: ./
+          paths:
+            - lib/
+            - node_modules
+
+  "node-12":
+    docker:
+      - image: circleci/node:12
+    steps:
+      - checkout
+      - attach_workspace:
+          at: ./
+      - run: npm test
+      - run: npm run build
 
   deploy:
     docker:
-      - image: circleci/node:<< pipeline.parameters.tag >>
+      - image: circleci/node:10
     steps:
-      - when:
-          condition: << pipeline.parameters.run-deploy-job >>
-          steps:
-            - checkout
-            - attach_workspace:
-                at: ./
-            - run: npm run deploy
-      - unless:
-          condition: << pipeline.parameters.run-deploy-job >>
-          steps:
-            - run: echo "No deployment on Node v<< pipeline.parameters.tag >>"
-
-  trigger-jobs:
-    machine:
-      image: ubuntu-1604:201903-01
-    parameters:
-      pipeline-param-map:
-        type: string
-    steps:
-      - run:
-          name: Trigger main worflow
-          command: |
-            VCS_TYPE=$(echo ${CIRCLE_BUILD_URL} | cut -d '/' -f 4)
-
-            curl -u ${CIRCLE_TOKEN}: -X POST --header "Content-Type: application/json" -d "{
-              \"branch\": \"${CIRCLE_BRANCH}\",
-              \"parameters\": << parameters.pipeline-param-map >>
-            }" "https://circleci.com/api/v2/project/${VCS_TYPE}/${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}/pipeline"
+      - checkout
+      - attach_workspace:
+          at: ./
+      - run: npm run deploy
 
 workflows:
   version: 2
-  trigger-jobs:
-    unless: << pipeline.parameters.run-main-workflow >>
+  matrix:
     jobs:
-      - trigger-jobs:
-          pipeline-param-map: |
-            {\"run-main-workflow\": true, \"tag\":\"8\"}
-      - trigger-jobs:
-          pipeline-param-map: |
-            {\"run-main-workflow\": true, \"tag\":\"10\", \"run-deploy-job\": true}
-      - trigger-jobs:
-          pipeline-param-map: |
-            {\"run-main-workflow\": true, \"tag\":\"latest\"}
-
-  main:
-    when: << pipeline.parameters.run-main-workflow >>
-    jobs:
-      - build:
-          name: build-<< pipeline.parameters.tag >>
-      - test:
-          name: test-<< pipeline.parameters.tag >>
+      - install_deps
+      - "node-8":
+          requires:
+            - install_deps
+      - "node-10":
+          requires:
+            - install_deps
+      - "node-12":
+          requires:
+            - install_deps
       - deploy:
           requires:
-            - build-<< pipeline.parameters.tag >>
-            - test-<< pipeline.parameters.tag >>
+            - "node-8"
+            - "node-10"
+            - "node-12"
