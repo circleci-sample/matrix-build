@@ -109,9 +109,8 @@ workflows:
           pipeline-param-map: |
             {\"run-main-workflow\": true, \"tag\":\"latest\"}
 
-  main:
+  "<< pipeline.parameters.tag >>":
     when: << pipeline.parameters.run-main-workflow >>
-    name: main-workflow-on-<< pipeline.parameters.tag >>
     jobs:
       - build:
           name: build-<< pipeline.parameters.tag >>
