@@ -111,6 +111,7 @@ workflows:
             {\"run-main-workflow\": true, \"tag\":\"latest\"}
 
   main:
+    name: << pipeline.parameters.tag >>
     when: << pipeline.parameters.run-main-workflow >>
     jobs:
       - build
