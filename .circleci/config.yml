@@ -113,9 +113,9 @@ workflows:
     when: << pipeline.parameters.run-main-workflow >>
     jobs:
       - build:
-          name: << pipeline.parameters.tag >>
+          name: build-<< pipeline.parameters.tag >>
       - test
       - deploy:
           requires:
-            - build
+            - build-<< pipeline.parameters.tag >>
             - test
