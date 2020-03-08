@@ -1,6 +1,6 @@
 parameters:
   tag:
-    default: 'latest'
+    default: '10'
     type: string
   run-main-workflow:
     default: false
@@ -59,19 +59,16 @@ jobs:
     machine:
       image: ubuntu-1604:201903-01
     parameters:
-      tag:
-        default: << pipeline.parameters.tag >>
-        type: string
       pipeline-param-map:
         default: |
-          {\"run-main-workflow\": true, \"tag\":\"<< parameters.tag >>\"}
+          {\"run-main-workflow\": true, \"tag\":\"10\"}
         type: string
       deploy_node_version:
         type: string
         default: ""
     steps:
       - when:
-          condition: [<< parameters.deploy_node_version >>, "10"]
+          condition: << parameters.deploy_node_version >>
           steps:
             - run:
                 name: Check Node version
@@ -96,11 +93,14 @@ workflows:
     unless: << pipeline.parameters.run-main-workflow >>
     jobs:
       - trigger-jobs:
-          tag: '12'
+          pipeline-param-map: |
+            {\"run-main-workflow\": true, \"tag\":\"8\"}
       - trigger-jobs:
-          tag: '10'
+          pipeline-param-map: |
+            {\"run-main-workflow\": true, \"tag\":\"10\"}
       - trigger-jobs:
-          tag: '8'
+          pipeline-param-map: |
+            {\"run-main-workflow\": true, \"tag\":\"latest\"}
 
   main:
     when: << pipeline.parameters.run-main-workflow >>
@@ -109,7 +109,7 @@ workflows:
       - test
       - trigger-jobs:
           pipeline-param-map: |
-            {\"run-deploy-workflow\": true\"}
+            {\"run-deploy-workflow\": true, \"tag\":\"10\"}
           deploy_node_version: "10"
           requires:
             - build
