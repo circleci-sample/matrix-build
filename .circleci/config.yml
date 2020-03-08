@@ -1,11 +1,18 @@
-version: 2.1
+parameters:
+  tag:
+    default: 'latest'
+    type: string
+  run-main-workflow:
+    default: false
+    type: boolean
+  run-deploy-workflow:
+    default: false
+    type: boolean
 
-executor-template: &executor-template
-  parameters:
-    tag:
-      type: string
-  docker:
-    - image: circleci/node:<< parameters.tag >>
+executors:
+  node:
+    docker:
+      - image: circleci/node:<< pipeline.parameters.tag >>
 
 commands:
   install_deps:
@@ -22,65 +29,93 @@ commands:
               - node_modules
             key: v1-npm-{{ .Branch }}-{{ .checksum "package-lock.json" }}
 
+version: 2.1
 jobs:
   test:
-    <<: *executor-template
-
+    executor: node
     steps:
       - install_deps
       - run: npm run test
 
   build:
-    <<: *executor-template
+    executor: node
 
     steps:
       - install_deps
 
       - run: npm run build
 
-  deploy:
-    <<: *executor-template
+      - store_artifacts:
+          path: version.txt
+          prefix: node-<< pipeline.parameters.tag >>
 
+  deploy:
+    docker:
+      - image: circleci/node:<< pipeline.parameters.tag >>
     steps:
-      - checkout
-      - attach_workspace:
-          at: ./
       - run: npm run deploy
+
+  trigger-jobs:
+    machine:
+      image: ubuntu-1604:201903-01
+    parameters:
+      tag:
+        default: << pipeline.parameters.tag >>
+        type: string
+      pipeline-param-map:
+        default: |
+          {\"run-integration-tests\": true, \"tag\":\"<< parameters.tag >>\"}
+        type: string
+      deploy_node_version:
+        type: string
+        default: ""
+    steps:
+      - when:
+          condition: [<< parameters.deploy_node_version >>, "10"]
+          steps:
+            - run:
+                name: Check Node version
+                command: |
+                  if [ << pipeline.parameters.tag >> == << parameters.deploy_node_version >> ]
+                  then
+                    circleci halt
+                  fi
+      - run:
+          name: Trigger main worflow
+          command: |
+            VCS_TYPE=$(echo ${CIRCLE_BUILD_URL} | cut -d '/' -f 4)
+
+            curl -u ${CIRCLE_TOKEN}: -X POST --header "Content-Type: application/json" -d "{
+              \"branch\": \"${CIRCLE_BRANCH}\",
+              \"parameters\": << parameters.pipeline-param-map >>
+            }" "https://circleci.com/api/v2/project/${VCS_TYPE}/${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}/pipeline"
 
 workflows:
   version: 2
-  build:
+  trigger-jobs:
+    unless: << pipeline.parameters.run-main-workflow >>
     jobs:
-      - test:
-          name: node-8-test
-          tag: "8"
+      - trigger-jobs:
+          tag: '12'
+      - trigger-jobs:
+          tag: '10'
+      - trigger-jobs:
+          tag: '8'
 
-      - test:
-          name: node-10-test
-          tag: "10"
-
-      - test:
-          name: node-12-test
-          tag: "12"
-
-      - build:
-          name: node-8-build
-          tag: "8"
-
-      - build:
-          name: node-10-build
-          tag: "10"
-
-      - build:
-          name: node-12-build
-          tag: "12"
-
-      - deploy:
-          tag: "10"
+  main:
+    when: << pipeline.parameters.run-main-workflow >>
+    jobs:
+      - build
+      - test
+      - trigger-jobs:
+          pipeline-param-map: |
+            {\"run-deploy-workflow\": true\"}
+          deploy_node_version: "10"
           requires:
-            - node-8-test
-            - node-8-build
-            - node-10-test
-            - node-10-build
-            - node-12-test
-            - node-12-build
+            - build
+            - test
+
+  deploy:
+    when: << pipeline.parameters.run-deploy-workflow >>
+    jobs:
+      - deploy

@@ -66,7 +66,20 @@ jobs:
         default: |
           {\"run-integration-tests\": true, \"tag\":\"<< parameters.tag >>\"}
         type: string
+      deploy_node_version:
+        type: string
+        default: ""
     steps:
+      - when:
+          condition: [<< parameters.deploy_node_version >>, "10"]
+          steps:
+            - run:
+                name: Check Node version
+                command: |
+                  if [ << pipeline.parameters.tag >> == << parameters.deploy_node_version >> ]
+                  then
+                    circleci halt
+                  fi
       - run:
           name: Trigger main worflow
           command: |
@@ -74,7 +87,7 @@ jobs:
 
             curl -u ${CIRCLE_TOKEN}: -X POST --header "Content-Type: application/json" -d "{
               \"branch\": \"${CIRCLE_BRANCH}\",
-              \"parameters\": <<parameters.pipeline-param-map>>
+              \"parameters\": << parameters.pipeline-param-map >>
             }" "https://circleci.com/api/v2/project/${VCS_TYPE}/${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}/pipeline"
 
 workflows:
@@ -97,6 +110,7 @@ workflows:
       - trigger-jobs:
           pipeline-param-map: |
             {\"run-deploy-workflow\": true\"}
+          deploy_node_version: "10"
           requires:
             - build
             - test
