@@ -10,21 +10,6 @@ executor-template: &executor-template
   docker:
     - image: circleci/node:<< parameters.tag >>
 
-commands:
-  install_deps:
-    steps:
-      - checkout
-      - restore_cache:
-          keys:
-            - v1-npm-{{ .Branch }}-{{ .checksum "package-lock.json" }}
-            - v1-npm-{{ .Branch }}-
-            - v1-npm-
-      - run: npm install
-      - save_cache:
-            paths:
-              - node_modules
-            key: v1-npm-{{ .Branch }}-{{ .checksum "package-lock.json" }}
-
 jobs:
   install_deps:
     <<: *executor-template
@@ -84,27 +69,39 @@ workflows:
       - test:
           name: node-8-test
           tag: "8"
+          requires:
+            - install_deps
 
       - test:
           name: node-10-test
           tag: "10"
+          requires:
+            - install_deps
 
       - test:
           name: node-12-test
           tag: "12"
+          requires:
+            - install_deps
 
       - build:
           name: node-8-build
           tag: "8"
+          requires:
+            - install_deps
 
       - build:
           name: node-10-build
           tag: "10"
           persist_built_files: true
+          requires:
+            - install_deps
 
       - build:
           name: node-12-build
           tag: "12"
+          requires:
+            - install_deps
 
       - deploy:
           tag: "10"
