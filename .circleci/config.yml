@@ -114,8 +114,9 @@ workflows:
     jobs:
       - build:
           name: build-<< pipeline.parameters.tag >>
-      - test
+      - test:
+          name: test-<< pipeline.parameters.tag >>
       - deploy:
           requires:
             - build-<< pipeline.parameters.tag >>
-            - test
+            - test-<< pipeline.parameters.tag >>
