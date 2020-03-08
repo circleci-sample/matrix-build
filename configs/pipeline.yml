@@ -104,13 +104,14 @@ workflows:
             {\"run-main-workflow\": true, \"tag\":\"8\"}
       - trigger-jobs:
           pipeline-param-map: |
-            {\"run-main-workflow\": true, \"tag\":\"10\", \"run-deploy\": true \}
+            {\"run-main-workflow\": true, \"tag\":\"10\", \"run-deploy\": true}
       - trigger-jobs:
           pipeline-param-map: |
             {\"run-main-workflow\": true, \"tag\":\"latest\"}
 
   main:
     when: << pipeline.parameters.run-main-workflow >>
+    name: main-workflow-on-<< pipeline.parameters.tag >>
     jobs:
       - build:
           name: build-<< pipeline.parameters.tag >>
