@@ -77,7 +77,6 @@ jobs:
           steps:
             - run: echo "No deployment on << pipeline.parameters.tag >>"
 
-
   trigger-jobs:
     machine:
       image: ubuntu-1604:201903-01
@@ -111,10 +110,10 @@ workflows:
             {\"run-main-workflow\": true, \"tag\":\"latest\"}
 
   main:
-    name: << pipeline.parameters.tag >>
     when: << pipeline.parameters.run-main-workflow >>
     jobs:
-      - build
+      - build:
+          name: << pipeline.parameters.tag >>
       - test
       - deploy:
           requires:
