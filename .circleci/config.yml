@@ -1,9 +1,30 @@
 version: 2.1
 
+executor-template: &executor-template
+  parameters:
+    tag:
+      type: string
+  docker:
+    - image: circleci/node:<< parameters.tag >>
+
+commands:
+  install_deps:
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - v1-npm-{{ .Branch }}-{{ checksum "package-lock.json" }}
+            - v1-npm-{{ .Branch }}-
+            - v1-npm-
+      - run: npm install
+      - save_cache:
+            paths:
+              - node_modules
+            key: v1-npm-{{ .Branch }}-{{ checksum "package-lock.json" }}
+
 jobs:
   install_deps:
-    docker:
-      - image: circleci/node:10
+    <<: *executor-template
     steps:
       - checkout
       - restore_cache:
@@ -21,44 +42,36 @@ jobs:
           paths:
             - node_modules
 
-  "node-8":
-    docker:
-      - image: circleci/node:8
+  test:
+    <<: *executor-template
     steps:
       - checkout
       - attach_workspace:
           at: ./
-      - run: npm test
-      - run: npm run build
+      - run: npm run test
 
-  "node-10":
-    docker:
-      - image: circleci/node:10
+  build:
+    <<: *executor-template
+    parameters:
+      persist_built_files:
+        type: boolean
+        default: false
     steps:
       - checkout
       - attach_workspace:
           at: ./
-      - run: npm test
       - run: npm run build
-      - persist_to_workspace: # Node v10でビルドした成果物を永続化
-          root: ./
-          paths:
-            - lib/
-            - node_modules
-
-  "node-12":
-    docker:
-      - image: circleci/node:12
-    steps:
-      - checkout
-      - attach_workspace:
-          at: ./
-      - run: npm test
-      - run: npm run build
+      - when:
+          condition: << parameters.persist_built_files >>
+          steps:
+            - persist_to_workspace:
+                root: ./
+                paths:
+                  - node_modules
+                  - lib
 
   deploy:
-    docker:
-      - image: circleci/node:10
+    <<: *executor-template
     steps:
       - checkout
       - attach_workspace:
@@ -67,20 +80,39 @@ jobs:
 
 workflows:
   version: 2
-  matrix:
+  build:
     jobs:
-      - install_deps
-      - "node-8":
-          requires:
-            - install_deps
-      - "node-10":
-          requires:
-            - install_deps
-      - "node-12":
-          requires:
-            - install_deps
+      - test:
+          name: node-8-test
+          tag: "8"
+
+      - test:
+          name: node-10-test
+          tag: "10"
+
+      - test:
+          name: node-12-test
+          tag: "12"
+
+      - build:
+          name: node-8-build
+          tag: "8"
+
+      - build:
+          name: node-10-build
+          tag: "10"
+          persist_built_files: true
+
+      - build:
+          name: node-12-build
+          tag: "12"
+
       - deploy:
+          tag: "10"
           requires:
-            - "node-8"
-            - "node-10"
-            - "node-12"
+            - node-8-test
+            - node-8-build
+            - node-10-test
+            - node-10-build
+            - node-12-test
+            - node-12-build
