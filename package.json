@@ -17,5 +17,8 @@
   "bugs": {
     "url": "https://github.com/uraway/matrix-build/issues"
   },
-  "homepage": "https://github.com/uraway/matrix-build#readme"
+  "homepage": "https://github.com/uraway/matrix-build#readme",
+  "dependencies": {
+    "lodash": "^4.17.15"
+  }
 }
