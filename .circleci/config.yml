@@ -5,7 +5,7 @@ parameters:
   run-main-workflow:
     default: false
     type: boolean
-  run-deploy-workflow:
+  run-deploy-job:
     default: false
     type: boolean
 
@@ -14,8 +14,10 @@ executors:
     docker:
       - image: circleci/node:<< pipeline.parameters.tag >>
 
-commands:
+version: 2.1
+jobs:
   install_deps:
+    executor: node
     steps:
       - checkout
       - restore_cache:
@@ -25,58 +27,59 @@ commands:
             - v1-npm-
       - run: npm install
       - save_cache:
-            paths:
-              - node_modules
-            key: v1-npm-{{ .Branch }}-{{ .checksum "package-lock.json" }}
+          paths:
+            - node_modules
+          key: v1-npm-{{ .Branch }}-{{ .checksum "package-lock.json" }}
+      - persist_to_workspace:
+          root: ./
+          paths:
+            - node_modules
 
-version: 2.1
-jobs:
   test:
     executor: node
     steps:
-      - install_deps
+      - checkout
+      - attach_workspace:
+          at: ./
       - run: npm run test
 
   build:
     executor: node
 
     steps:
-      - install_deps
-
+      - checkout
+      - attach_workspace:
+          at: ./
       - run: npm run build
 
-      - store_artifacts:
-          path: version.txt
-          prefix: node-<< pipeline.parameters.tag >>
+      - when:
+          condition: << pipeline.parameters.run-deploy-job >>
+          steps:
+            - attach_workspace:
+                root: ./
+                paths:
+                  - lib
+                  - node_modules
 
   deploy:
     docker:
       - image: circleci/node:<< pipeline.parameters.tag >>
     steps:
-      - run: npm run deploy
+      - when:
+          condition: << pipeline.parameters.run-deploy-job >>
+          steps:
+            - checkout
+            - attach_workspace:
+                at: ./
+            - run: npm run deploy
 
   trigger-jobs:
     machine:
       image: ubuntu-1604:201903-01
     parameters:
       pipeline-param-map:
-        default: |
-          {\"run-main-workflow\": true, \"tag\":\"10\"}
         type: string
-      deploy_node_version:
-        type: string
-        default: ""
     steps:
-      - when:
-          condition: << parameters.deploy_node_version >>
-          steps:
-            - run:
-                name: Check Node version
-                command: |
-                  if [ << pipeline.parameters.tag >> == << parameters.deploy_node_version >> ]
-                  then
-                    circleci halt
-                  fi
       - run:
           name: Trigger main worflow
           command: |
@@ -97,7 +100,7 @@ workflows:
             {\"run-main-workflow\": true, \"tag\":\"8\"}
       - trigger-jobs:
           pipeline-param-map: |
-            {\"run-main-workflow\": true, \"tag\":\"10\"}
+            {\"run-main-workflow\": true, \"tag\":\"10\", \"run-deploy\": true \}
       - trigger-jobs:
           pipeline-param-map: |
             {\"run-main-workflow\": true, \"tag\":\"latest\"}
@@ -107,15 +110,7 @@ workflows:
     jobs:
       - build
       - test
-      - trigger-jobs:
-          pipeline-param-map: |
-            {\"run-deploy-workflow\": true, \"tag\":\"10\"}
-          deploy_node_version: "10"
+      - deploy:
           requires:
             - build
             - test
-
-  deploy:
-    when: << pipeline.parameters.run-deploy-workflow >>
-    jobs:
-      - deploy
