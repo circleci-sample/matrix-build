@@ -55,7 +55,7 @@ jobs:
       - when:
           condition: << pipeline.parameters.run-deploy-job >>
           steps:
-            - attach_workspace:
+            - persist_to_workspace:
                 root: ./
                 paths:
                   - lib
