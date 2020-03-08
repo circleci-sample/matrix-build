@@ -5,7 +5,7 @@ executor-template: &executor-template
     tag:
       type: string
   docker:
-    - image: circleci/node-<< parameters.tag >>
+    - image: circleci/node:<< parameters.tag >>
 
 commands:
   install_deps:
@@ -13,39 +13,69 @@ commands:
       - checkout
       - restore_cache:
           keys:
-            - v1-npm-{{ .Branch }}-{{ .checksum "package-lock.json" }}
+            - v1-npm-{{ .Branch }}-{{ checksum "package-lock.json" }}
             - v1-npm-{{ .Branch }}-
             - v1-npm-
       - run: npm install
       - save_cache:
             paths:
               - node_modules
-            key: v1-npm-{{ .Branch }}-{{ .checksum "package-lock.json" }}
+            key: v1-npm-{{ .Branch }}-{{ checksum "package-lock.json" }}
 
 jobs:
+  install_deps:
+    <<: *executor-template
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - v1-npm-{{ .Branch }}-{{ checksum "package-lock.json" }}
+            - v1-npm-{{ .Branch }}-
+            - v1-npm-
+      - run: npm install
+      - save_cache:
+          paths:
+            - node_modules
+          key: v1-npm-{{ .Branch }}-{{ checksum "package-lock.json" }}
+      - persist_to_workspace:
+          root: ./
+          paths:
+            - node_modules
+
   test:
     <<: *executor-template
-
     steps:
-      - install_deps
+      - checkout
+      - attach_workspace:
+          at: ./
       - run: npm run test
 
   build:
     <<: *executor-template
-
+    parameters:
+      persist_built_files:
+        type: boolean
+        default: false
     steps:
-      - install_deps
-
+      - checkout
+      - attach_workspace:
+          at: ./
       - run: npm run build
-
-      - store_artifacts:
-          path: version.txt
-          prefix: node-<< parameters.tag >>
+      - when:
+          condition: << parameters.persist_built_files >>
+          steps:
+            - persist_to_workspace:
+                root: ./
+                paths:
+                  - node_modules
+                  - lib
 
   deploy:
-    docker:
-      - image: circleci/node:10
+    <<: *executor-template
     steps:
+      - checkout
+      - attach_workspace:
+          at: ./
       - run: npm run deploy
 
 workflows:
@@ -60,6 +90,10 @@ workflows:
           name: node-10-test
           tag: "10"
 
+      - test:
+          name: node-12-test
+          tag: "12"
+
       - build:
           name: node-8-build
           tag: "8"
@@ -67,10 +101,18 @@ workflows:
       - build:
           name: node-10-build
           tag: "10"
+          persist_built_files: true
+
+      - build:
+          name: node-12-build
+          tag: "12"
 
       - deploy:
+          tag: "10"
           requires:
             - node-8-test
             - node-8-build
             - node-10-test
             - node-10-build
+            - node-12-test
+            - node-12-build

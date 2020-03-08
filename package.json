@@ -5,8 +5,8 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Test passed\"",
-    "build": "node -v > version.txt",
-    "deploy": "cat version.txt && echo \"Successfully deployed :tada:\""
+    "build": "mkdir -p lib && node -v > lib/version.txt",
+    "deploy": "cat lib/version.txt && echo \"Successfully deployed :tada:\""
   },
   "repository": {
     "type": "git",
@@ -17,5 +17,8 @@
   "bugs": {
     "url": "https://github.com/uraway/matrix-build/issues"
   },
-  "homepage": "https://github.com/uraway/matrix-build#readme"
+  "homepage": "https://github.com/uraway/matrix-build#readme",
+  "dependencies": {
+    "lodash": "^4.17.15"
+  }
 }

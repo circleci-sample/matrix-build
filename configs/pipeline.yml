@@ -1,11 +1,11 @@
 parameters:
   tag:
-    default: 'latest'
+    default: '10'
     type: string
   run-main-workflow:
     default: false
     type: boolean
-  run-deploy-workflow:
+  run-deploy-job:
     default: false
     type: boolean
 
@@ -14,57 +14,74 @@ executors:
     docker:
       - image: circleci/node:<< pipeline.parameters.tag >>
 
-commands:
+version: 2.1
+jobs:
   install_deps:
+    executor: node
     steps:
       - checkout
       - restore_cache:
           keys:
-            - v1-npm-{{ .Branch }}-{{ .checksum "package-lock.json" }}
+            - v1-npm-{{ .Branch }}-{{ checksum "package-lock.json" }}
             - v1-npm-{{ .Branch }}-
             - v1-npm-
       - run: npm install
       - save_cache:
-            paths:
-              - node_modules
-            key: v1-npm-{{ .Branch }}-{{ .checksum "package-lock.json" }}
+          paths:
+            - node_modules
+          key: v1-npm-{{ .Branch }}-{{ checksum "package-lock.json" }}
+      - persist_to_workspace:
+          root: ./
+          paths:
+            - node_modules
 
-version: 2.1
-jobs:
   test:
     executor: node
     steps:
-      - install_deps
+      - checkout
+      - attach_workspace:
+          at: ./
       - run: npm run test
 
   build:
     executor: node
 
     steps:
-      - install_deps
-
+      - checkout
+      - attach_workspace:
+          at: ./
       - run: npm run build
 
-      - store_artifacts:
-          path: version.txt
-          prefix: node-<< pipeline.parameters.tag >>
+      - when:
+          condition: << pipeline.parameters.run-deploy-job >>
+          steps:
+            - attach_workspace:
+                root: ./
+                paths:
+                  - lib
+                  - node_modules
 
   deploy:
     docker:
       - image: circleci/node:<< pipeline.parameters.tag >>
     steps:
-      - run: npm run deploy
+      - when:
+          condition: << pipeline.parameters.run-deploy-job >>
+          steps:
+            - checkout
+            - attach_workspace:
+                at: ./
+            - run: npm run deploy
+      - unless:
+          condition: << pipeline.parameters.run-deploy-job >>
+          steps:
+            - run: echo "No deployment on << pipeline.parameters.tag >>"
 
   trigger-jobs:
     machine:
       image: ubuntu-1604:201903-01
     parameters:
-      tag:
-        default: << pipeline.parameters.tag >>
-        type: string
       pipeline-param-map:
-        default: |
-          {\"run-integration-tests\": true, \"tag\":\"<< parameters.tag >>\"}
         type: string
     steps:
       - run:
@@ -74,7 +91,7 @@ jobs:
 
             curl -u ${CIRCLE_TOKEN}: -X POST --header "Content-Type: application/json" -d "{
               \"branch\": \"${CIRCLE_BRANCH}\",
-              \"parameters\": <<parameters.pipeline-param-map>>
+              \"parameters\": << parameters.pipeline-param-map >>
             }" "https://circleci.com/api/v2/project/${VCS_TYPE}/${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}/pipeline"
 
 workflows:
@@ -83,25 +100,23 @@ workflows:
     unless: << pipeline.parameters.run-main-workflow >>
     jobs:
       - trigger-jobs:
-          tag: '12'
+          pipeline-param-map: |
+            {\"run-main-workflow\": true, \"tag\":\"8\"}
       - trigger-jobs:
-          tag: '10'
+          pipeline-param-map: |
+            {\"run-main-workflow\": true, \"tag\":\"10\", \"run-deploy\": true \}
       - trigger-jobs:
-          tag: '8'
+          pipeline-param-map: |
+            {\"run-main-workflow\": true, \"tag\":\"latest\"}
 
   main:
     when: << pipeline.parameters.run-main-workflow >>
     jobs:
-      - build
-      - test
-      - trigger-jobs:
-          pipeline-param-map: |
-            {\"run-deploy-workflow\": true\"}
+      - build:
+          name: build-<< pipeline.parameters.tag >>
+      - test:
+          name: test-<< pipeline.parameters.tag >>
+      - deploy:
           requires:
-            - build
-            - test
-
-  deploy:
-    when: << pipeline.parameters.run-deploy-workflow >>
-    jobs:
-      - deploy
+            - build-<< pipeline.parameters.tag >>
+            - test-<< pipeline.parameters.tag >>
