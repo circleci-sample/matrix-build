@@ -75,7 +75,7 @@ jobs:
       - unless:
           condition: << pipeline.parameters.run-deploy-job >>
           steps:
-            - run: echo "No deployment on << pipeline.parameters.tag >>"
+            - run: echo "No deployment on Node v<< pipeline.parameters.tag >>"
 
   trigger-jobs:
     machine:
