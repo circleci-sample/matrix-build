@@ -1,23 +1,33 @@
-parameters:
-  tag:
-    default: '10'
-    type: string
-  run-main-workflow:
-    default: false
-    type: boolean
-  run-deploy-job:
-    default: false
-    type: boolean
-
-executors:
-  node:
-    docker:
-      - image: circleci/node:<< pipeline.parameters.tag >>
-
 version: 2.1
+
+executor-template: &executor-template
+  parameters:
+    tag:
+      type: string
+    persist_built_files:
+      type: boolean
+      default: false
+  docker:
+    - image: circleci/node:<< parameters.tag >>
+
+commands:
+  install_deps:
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - v1-npm-{{ .Branch }}-{{ .checksum "package-lock.json" }}
+            - v1-npm-{{ .Branch }}-
+            - v1-npm-
+      - run: npm install
+      - save_cache:
+            paths:
+              - node_modules
+            key: v1-npm-{{ .Branch }}-{{ .checksum "package-lock.json" }}
+
 jobs:
   install_deps:
-    executor: node
+    <<: *executor-template
     steps:
       - checkout
       - restore_cache:
@@ -36,7 +46,7 @@ jobs:
             - node_modules
 
   test:
-    executor: node
+    <<: *executor-template
     steps:
       - checkout
       - attach_workspace:
@@ -44,79 +54,64 @@ jobs:
       - run: npm run test
 
   build:
-    executor: node
-
+    <<: *executor-template
     steps:
       - checkout
       - attach_workspace:
           at: ./
       - run: npm run build
-
       - when:
-          condition: << pipeline.parameters.run-deploy-job >>
+          condition: << parameters.persist_built_files >>
           steps:
-            - attach_workspace:
+            - persist_to_workspace:
                 root: ./
                 paths:
-                  - lib
                   - node_modules
+                  - lib
 
   deploy:
-    docker:
-      - image: circleci/node:<< pipeline.parameters.tag >>
+    <<: *executor-template
     steps:
-      - when:
-          condition: << pipeline.parameters.run-deploy-job >>
-          steps:
-            - checkout
-            - attach_workspace:
-                at: ./
-            - run: npm run deploy
-      - unless:
-          condition: << pipeline.parameters.run-deploy-job >>
-          steps:
-            - run: echo "No deployment on << pipeline.parameters.tag >>"
-
-  trigger-jobs:
-    machine:
-      image: ubuntu-1604:201903-01
-    parameters:
-      pipeline-param-map:
-        type: string
-    steps:
-      - run:
-          name: Trigger main worflow
-          command: |
-            VCS_TYPE=$(echo ${CIRCLE_BUILD_URL} | cut -d '/' -f 4)
-
-            curl -u ${CIRCLE_TOKEN}: -X POST --header "Content-Type: application/json" -d "{
-              \"branch\": \"${CIRCLE_BRANCH}\",
-              \"parameters\": << parameters.pipeline-param-map >>
-            }" "https://circleci.com/api/v2/project/${VCS_TYPE}/${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}/pipeline"
+      - checkout
+      - attach_workspace:
+          at: ./
+      - run: npm run deploy
 
 workflows:
   version: 2
-  trigger-jobs:
-    unless: << pipeline.parameters.run-main-workflow >>
+  build:
     jobs:
-      - trigger-jobs:
-          pipeline-param-map: |
-            {\"run-main-workflow\": true, \"tag\":\"8\"}
-      - trigger-jobs:
-          pipeline-param-map: |
-            {\"run-main-workflow\": true, \"tag\":\"10\", \"run-deploy\": true \}
-      - trigger-jobs:
-          pipeline-param-map: |
-            {\"run-main-workflow\": true, \"tag\":\"latest\"}
-
-  main:
-    when: << pipeline.parameters.run-main-workflow >>
-    jobs:
-      - build:
-          name: build-<< pipeline.parameters.tag >>
       - test:
-          name: test-<< pipeline.parameters.tag >>
+          name: node-8-test
+          tag: "8"
+
+      - test:
+          name: node-10-test
+          tag: "10"
+
+      - test:
+          name: node-12-test
+          tag: "12"
+
+      - build:
+          name: node-8-build
+          tag: "8"
+
+      - build:
+          name: node-10-build
+          tag: "10"
+          persist_built_files: true
+
+      - build:
+          name: node-12-build
+          tag: "12"
+
       - deploy:
+          tag: "10"
           requires:
-            - build-<< pipeline.parameters.tag >>
-            - test-<< pipeline.parameters.tag >>
+            - node-8-test
+            - node-8-build
+            - node-10-test
+            - node-10-build
+            - node-12-test
+            - node-12-build

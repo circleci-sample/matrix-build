@@ -23,24 +23,55 @@ commands:
             key: v1-npm-{{ .Branch }}-{{ .checksum "package-lock.json" }}
 
 jobs:
+  install_deps:
+    <<: *executor-template
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - v1-npm-{{ .Branch }}-{{ .checksum "package-lock.json" }}
+            - v1-npm-{{ .Branch }}-
+            - v1-npm-
+      - run: npm install
+      - save_cache:
+          paths:
+            - node_modules
+          key: v1-npm-{{ .Branch }}-{{ .checksum "package-lock.json" }}
+      - persist_to_workspace:
+          root: ./
+          paths:
+            - node_modules
+
   test:
     <<: *executor-template
-
     steps:
-      - install_deps
+      - checkout
+      - attach_workspace:
+          at: ./
       - run: npm run test
 
   build:
     <<: *executor-template
-
+    parameters:
+      persist_built_files:
+        type: boolean
+        default: false
     steps:
-      - install_deps
-
+      - checkout
+      - attach_workspace:
+          at: ./
       - run: npm run build
+      - when:
+          condition: << parameters.persist_built_files >>
+          steps:
+            - persist_to_workspace:
+                root: ./
+                paths:
+                  - node_modules
+                  - lib
 
   deploy:
     <<: *executor-template
-
     steps:
       - checkout
       - attach_workspace:
@@ -70,6 +101,7 @@ workflows:
       - build:
           name: node-10-build
           tag: "10"
+          persist_built_files: true
 
       - build:
           name: node-12-build
