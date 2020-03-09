@@ -36,7 +36,7 @@ commands:
             nvm install << pipeline.parameters.tag >>
             nvm use << pipeline.parameters.tag >>
 
-            npx cross-env echo "Use Node.js v$(node -v)"
+            npx check-node-version --print
 
 version: 2.1
 jobs:
