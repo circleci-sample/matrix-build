@@ -119,7 +119,7 @@ jobs:
 
             for NODE_VERSION in 8 10 12
             do
-                for PLATFORM in linux win/default
+                for PLATFORM in linux windows/default
                 do
                     PIIPELINE_PARAM_MAP="{\"run-main-workflow\": true, \"tag\":\"$NODE_VERSION\", \"platform\":\"$PLATFORM\"}"
                     if [ "$NODE_VERSION" = "<< parameters.deploy-node-version >>" ] && [ "$PLATFORM" = "<< parameters.deploy-platform >>" ]
