@@ -1,19 +1,23 @@
+parameters:
+  tag:
+    default: '10'
+    type: string
+  run-main-workflow:
+    default: false
+    type: boolean
+  run-deploy-job:
+    default: false
+    type: boolean
+
+executors:
+  node:
+    docker:
+      - image: circleci/node:<< pipeline.parameters.tag >>
+
 version: 2.1
-
-executor-template: &executor-template
-  parameters:
-    tag:
-      default: "10"
-      type: string
-    persist_built_files:
-      type: boolean
-      default: false
-  docker:
-    - image: circleci/node:<< parameters.tag >>
-
 jobs:
   install_deps:
-    <<: *executor-template
+    executor: node
     steps:
       - checkout
       - restore_cache:
@@ -32,7 +36,7 @@ jobs:
             - node_modules
 
   test:
-    <<: *executor-template
+    executor: node
     steps:
       - checkout
       - attach_workspace:
@@ -40,78 +44,82 @@ jobs:
       - run: npm run test
 
   build:
-    <<: *executor-template
+    executor: node
+
     steps:
       - checkout
       - attach_workspace:
           at: ./
       - run: npm run build
+
       - when:
-          condition: << parameters.persist_built_files >>
+          condition: << pipeline.parameters.run-deploy-job >>
           steps:
             - persist_to_workspace:
                 root: ./
                 paths:
-                  - node_modules
                   - lib
+                  - node_modules
 
   deploy:
-    <<: *executor-template
+    docker:
+      - image: circleci/node:<< pipeline.parameters.tag >>
     steps:
-      - checkout
-      - attach_workspace:
-          at: ./
-      - run: npm run deploy
+      - when:
+          condition: << pipeline.parameters.run-deploy-job >>
+          steps:
+            - checkout
+            - attach_workspace:
+                at: ./
+            - run: npm run deploy
+      - unless:
+          condition: << pipeline.parameters.run-deploy-job >>
+          steps:
+            - run: echo "No deployment on Node v<< pipeline.parameters.tag >>"
+
+  trigger-main-workflows:
+    machine:
+      image: ubuntu-1604:201903-01
+    parameters:
+      deploy-node-version:
+        default: '10'
+        type: string
+    steps:
+      - run:
+          name: Trigger main worflow
+          command: |
+            VCS_TYPE=$(echo ${CIRCLE_BUILD_URL} | cut -d '/' -f 4)
+
+            for NODE_VERSION in 8 10 12
+            do
+                PIIPELINE_PARAM_MAP={\"run-main-workflow\": true, \"tag\":\"$NODE_VERSION\"}
+                if [ "$NODE_VERSION" == << parameters.deploy-node-version >> ]
+                then
+                    PIIPELINE_PARAM_MAP={\"run-main-workflow\": true, \"tag\":\"$NODE_VERSION\", \"run-deploy-job\": true}
+                fi
+
+                curl -u ${CIRCLE_TOKEN}: -X POST --header "Content-Type: application/json" -d "{
+                  \"branch\": \"${CIRCLE_BRANCH}\",
+                  \"parameters\": \"${PIIPELINE_PARAM_MAP}\"
+                }" "https://circleci.com/api/v2/project/${VCS_TYPE}/${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}/pipeline"
+            done
 
 workflows:
   version: 2
   matrix:
+    unless: << pipeline.parameters.run-main-workflow >>
     jobs:
-      - install_deps
+      - trigger-main-workflows:
+          deploy-node-version: "10"
 
-      - test:
-          name: node-8-test
-          tag: "8"
-          requires:
-            - install_deps
-
-      - test:
-          name: node-10-test
-          tag: "10"
-          requires:
-            - install_deps
-
-      - test:
-          name: node-12-test
-          tag: "12"
-          requires:
-            - install_deps
-
+  main:
+    when: << pipeline.parameters.run-main-workflow >>
+    jobs:
       - build:
-          name: node-8-build
-          tag: "8"
-          requires:
-            - install_deps
-
-      - build:
-          name: node-10-build
-          tag: "10"
-          persist_built_files: true
-          requires:
-            - install_deps
-
-      - build:
-          name: node-12-build
-          tag: "12"
-          requires:
-            - install_deps
-
+          name: build-<< pipeline.parameters.tag >>
+      - test:
+          name: test-<< pipeline.parameters.tag >>
       - deploy:
-          tag: "10"
           requires:
-            - node-8-test
-            - node-8-build
-            - node-10-test
-            - node-10-build
-            - node-12-test
-            - node-12-build
+            - build-<< pipeline.parameters.tag >>
+            - test-<< pipeline.parameters.tag >>

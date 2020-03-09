@@ -81,7 +81,8 @@ jobs:
     machine:
       image: ubuntu-1604:201903-01
     parameters:
-      pipeline-param-map:
+      deploy-node-version:
+        default: '10'
         type: string
     steps:
       - run:
@@ -89,25 +90,27 @@ jobs:
           command: |
             VCS_TYPE=$(echo ${CIRCLE_BUILD_URL} | cut -d '/' -f 4)
 
-            curl -u ${CIRCLE_TOKEN}: -X POST --header "Content-Type: application/json" -d "{
-              \"branch\": \"${CIRCLE_BRANCH}\",
-              \"parameters\": << parameters.pipeline-param-map >>
-            }" "https://circleci.com/api/v2/project/${VCS_TYPE}/${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}/pipeline"
+            for NODE_VERSION in 8 10 12
+            do
+                PIIPELINE_PARAM_MAP={\"run-main-workflow\": true, \"tag\":\"$NODE_VERSION\"}
+                if [ "$NODE_VERSION" == << parameters.deploy-node-version >> ]
+                then
+                    PIIPELINE_PARAM_MAP={\"run-main-workflow\": true, \"tag\":\"$NODE_VERSION\", \"run-deploy-job\": true}
+                fi
+
+                curl -u ${CIRCLE_TOKEN}: -X POST --header "Content-Type: application/json" -d "{
+                  \"branch\": \"${CIRCLE_BRANCH}\",
+                  \"parameters\": \"${PIIPELINE_PARAM_MAP}\"
+                }" "https://circleci.com/api/v2/project/${VCS_TYPE}/${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}/pipeline"
+            done
 
 workflows:
   version: 2
-  trigger-jobs:
+  matrix:
     unless: << pipeline.parameters.run-main-workflow >>
     jobs:
-      - trigger-jobs:
-          pipeline-param-map: |
-            {\"run-main-workflow\": true, \"tag\":\"8\"}
-      - trigger-jobs:
-          pipeline-param-map: |
-            {\"run-main-workflow\": true, \"tag\":\"10\", \"run-deploy-job\": true}
-      - trigger-jobs:
-          pipeline-param-map: |
-            {\"run-main-workflow\": true, \"tag\":\"latest\"}
+      - trigger-main-workflows:
+          deploy-node-version: "10"
 
   main:
     when: << pipeline.parameters.run-main-workflow >>
