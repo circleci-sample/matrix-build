@@ -1,6 +1,4 @@
-# matrix-build
-
-## CircleCI マトリックスビルド
+## CircleCIでマトリックスビルド
 
 CircleCIでは、マトリックスビルドはサポートされていませんが、実現するためのいくつかの方法があります。
 
@@ -109,7 +107,8 @@ workflows:
 version: 2.1
 
 jobs:
-  (略)
+
+(略)
 
   "node-8-test":
     docker:
@@ -156,7 +155,6 @@ jobs:
     docker:
       - image: circleci/node:12
     steps:
-      - install_deps
       - checkout
       - attach_workspace:
           at: ./
@@ -184,12 +182,25 @@ workflows:
   version: 2
   matrix:
     jobs:
-      - "node-8-test"
-      - "node-8-build"
-      - "node-10-test"
-      - "node-10-build"
-      - "node-12-test"
-      - "node-12-build"
+      - install_deps
+      - "node-8-test":
+          requires:
+            - install_deps
+      - "node-8-build":
+          requires:
+            - install_deps
+      - "node-10-test":
+          requires:
+            - install_deps
+      - "node-10-build":
+          requires:
+            - install_deps
+      - "node-12-test":
+          requires:
+            - install_deps
+      - "node-12-build":
+          requires:
+            - install_deps
       - deploy:
           requires:
             - "node-8-test"
@@ -305,7 +316,7 @@ workflows:
       - build:
           name: node-10-build
           tag: "10"
-          persist_built_files: true # Node v10でビルドした成果物を永続化するためのパラメータ
+          persist_built_files: true
           requires:
             - install_deps
 
@@ -499,4 +510,4 @@ Nodeバージョン×DBといったマトリックスも可能です。
 
 ([ファンアウト・ファンインについて](https://circleci.com/docs/ja/2.0/workflows/#%E3%83%95%E3%82%A1%E3%83%B3%E3%82%A4%E3%83%B3%E3%83%95%E3%82%A1%E3%83%B3%E3%82%A2%E3%82%A6%E3%83%88%E3%81%AE-workflow-%E3%81%AE%E4%BE%8B))
 
-[RFC: Matrix Jobs syntax](https://discuss.circleci.com/t/rfc-matrix-jobs-syntax/34468)を見ると、マトリックスビルドの開発が今まさに行われているようなので、正式サポートされるまではファンアウトだけならジョブパラメータ、ファンインが必要ならパイプラインパラメータが良さそうかな。
+[RFC: Matrix Jobs syntax](https://discuss.circleci.com/t/rfc-matrix-jobs-syntax/34468)を見ると、マトリックスビルドの開発が今まさに行われているようなので、正式サポートされるまではファンアウトだけなら上記のパイプラインパラメータ、ファンインが必要ならジョブパラメータが良さそうかなと思います。
