@@ -27,7 +27,7 @@ commands:
       - run:
           name: Install Node
           command: |
-            if [<< pipeline.parameters.platform >> = "linux"]
+            if ["<< pipeline.parameters.platform >>" = "linux"]
             then
               echo "Skip installation"
             else
@@ -122,7 +122,7 @@ jobs:
                 for PLATFORM in linux win/default
                 do
                     PIIPELINE_PARAM_MAP="{\"run-main-workflow\": true, \"tag\":\"$NODE_VERSION\", \"platform\":\"$PLATFORM\"}"
-                    if [ "$NODE_VERSION" = << parameters.deploy-node-version >> ] && [ "$PLATFORM" = << parameters.deploy-platform >> ]
+                    if [ "$NODE_VERSION" = "<< parameters.deploy-node-version >>" ] && [ "$PLATFORM" = "<< parameters.deploy-platform >>" ]
                     then
                         PIIPELINE_PARAM_MAP="{\"run-main-workflow\": true, \"tag\":\"$NODE_VERSION\", \"platform\":\"$PLATFORM\", \"run-deploy-job\": true}"
                     fi
