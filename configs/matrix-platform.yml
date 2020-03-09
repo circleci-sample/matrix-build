@@ -27,13 +27,8 @@ commands:
       - run:
           name: Install Node
           command: |
-            if [ "<< pipeline.parameters.platform >>" = "linux" ]
-            then
-              echo "Skip installation"
-            else
-              nvm install << pipeline.parameters.tag >>
-              nvm use << pipeline.parameters.tag >>
-            fi
+            nvm install << pipeline.parameters.tag >>
+            nvm use << pipeline.parameters.tag >>
             echo "Use Node.js $(node -v)"
 
 version: 2.1
