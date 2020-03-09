@@ -21,8 +21,8 @@ executors:
       - image: circleci/node:<< pipeline.parameters.tag >>
   windows:
     machine:
-      image: windows-server-2019-nvidia:stable
-      resource_class: windows.gpu.nvidia.medium
+      image: windows-server-2019-vs2019:stable
+      resource_class: windows.medium
       shell: bash.exe
 
 commands:
@@ -31,6 +31,8 @@ commands:
       - run:
           name: Install Node
           command: |
+            set +e
+
             nvm install << pipeline.parameters.tag >>
             nvm use << pipeline.parameters.tag >>
             echo "Use Node.js $(node -v)"
