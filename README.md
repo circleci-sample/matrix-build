@@ -109,25 +109,7 @@ workflows:
 version: 2.1
 
 jobs:
-  install_deps:
-    docker:
-      - image: circleci/node:10
-    steps:
-      - checkout
-      - restore_cache:
-          keys:
-            - v1-npm-{{ .Branch }}-{{ checksum "package-lock.json" }}
-            - v1-npm-{{ .Branch }}-
-            - v1-npm-
-      - run: npm install
-      - save_cache:
-          paths:
-            - node_modules
-          key: v1-npm-{{ .Branch }}-{{ checksum "package-lock.json" }}
-      - persist_to_workspace:
-          root: ./
-          paths:
-            - node_modules
+  (略)
 
   "node-8-test":
     docker:
@@ -220,9 +202,9 @@ workflows:
 
 この場合、パラメータを使ってジョブコンフィグをまとめることができます。
 
-### ジョブをまとめてパラメータで管理する 
+### ジョブパラメータで管理する 
 
-パラメータを使えば、テスト・ビルドのジョブは使い回すことができるため、設定ファイルがすっきりします。
+パラメータを使えば、テスト・ビルドのジョブは使い回すことができるため、設定ファイルがすっきりします。ただし、これでも手動で値を入れる必要があるため、2軸のマトリックス(言語バージョン×OSなど)はうまく管理できる気がしません。
 
 ```yaml
 version: 2.1
@@ -230,12 +212,17 @@ version: 2.1
 executor-template: &executor-template
   parameters:
     tag:
+      default: "10"
       type: string
+    persist_built_files:
+      type: boolean
+      default: false
   docker:
     - image: circleci/node:<< parameters.tag >>
 
-commands:
+jobs:
   install_deps:
+    <<: *executor-template
     steps:
       - checkout
       - restore_cache:
@@ -245,29 +232,40 @@ commands:
             - v1-npm-
       - run: npm install
       - save_cache:
-            paths:
-              - node_modules
-            key: v1-npm-{{ .Branch }}-{{ checksum "package-lock.json" }}
+          paths:
+            - node_modules
+          key: v1-npm-{{ .Branch }}-{{ checksum "package-lock.json" }}
+      - persist_to_workspace:
+          root: ./
+          paths:
+            - node_modules
 
-jobs:
   test:
     <<: *executor-template
-
     steps:
-      - install_deps
+      - checkout
+      - attach_workspace:
+          at: ./
       - run: npm run test
 
   build:
     <<: *executor-template
-
     steps:
-      - install_deps
-
+      - checkout
+      - attach_workspace:
+          at: ./
       - run: npm run build
+      - when:
+          condition: << parameters.persist_built_files >>
+          steps:
+            - persist_to_workspace:
+                root: ./
+                paths:
+                  - node_modules
+                  - lib
 
   deploy:
     <<: *executor-template
-
     steps:
       - checkout
       - attach_workspace:
@@ -278,29 +276,44 @@ workflows:
   version: 2
   matrix:
     jobs:
+      - install_deps
+
       - test:
           name: node-8-test
           tag: "8"
+          requires:
+            - install_deps
 
       - test:
           name: node-10-test
           tag: "10"
+          requires:
+            - install_deps
 
       - test:
           name: node-12-test
           tag: "12"
+          requires:
+            - install_deps
 
       - build:
           name: node-8-build
           tag: "8"
+          requires:
+            - install_deps
 
       - build:
           name: node-10-build
           tag: "10"
+          persist_built_files: true # Node v10でビルドした成果物を永続化するためのパラメータ
+          requires:
+            - install_deps
 
       - build:
           name: node-12-build
           tag: "12"
+          requires:
+            - install_deps
 
       - deploy:
           tag: "10"
@@ -313,9 +326,9 @@ workflows:
             - node-12-build
 ```
 
-### パイプラインパラメータ
+### パイプラインパラメータで管理する 
 
-少しトリッキーですが、パイプラインパラメータを使えば、`matrix`ワークフロー全体にパラメータを渡すことができるため、より少ない記述量で実現できます。この設定ファイルを使用するには、[APIトークン](https://circleci.com/docs/ja/2.0/managing-api-tokens/)(`CIRCLE_TOKEN`)が必要です。
+少しトリッキーですが、パイプラインパラメータを使えば、ワークフロー全体にパラメータを渡すことができるため、より少ない記述量で実現できます。この設定ファイルを使用するには、[APIトークン](https://circleci.com/docs/ja/2.0/managing-api-tokens/)(`CIRCLE_TOKEN`)が必要です。
 
 (パラメータを使った動的なジョブ名は前からできたっけ？)
 
@@ -377,7 +390,7 @@ jobs:
       - when:
           condition: << pipeline.parameters.run-deploy-job >>
           steps:
-            - attach_workspace:
+            - persist_to_workspace:
                 root: ./
                 paths:
                   - lib
@@ -397,13 +410,14 @@ jobs:
       - unless:
           condition: << pipeline.parameters.run-deploy-job >>
           steps:
-            - run: echo "No deployment on << pipeline.parameters.tag >>"
+            - run: echo "No deployment on Node v<< pipeline.parameters.tag >>"
 
-  trigger-jobs:
+  trigger-main-workflows:
     machine:
       image: ubuntu-1604:201903-01
     parameters:
-      pipeline-param-map:
+      deploy-node-version:
+        default: '10'
         type: string
     steps:
       - run:
@@ -411,25 +425,27 @@ jobs:
           command: |
             VCS_TYPE=$(echo ${CIRCLE_BUILD_URL} | cut -d '/' -f 4)
 
-            curl -u ${CIRCLE_TOKEN}: -X POST --header "Content-Type: application/json" -d "{
-              \"branch\": \"${CIRCLE_BRANCH}\",
-              \"parameters\": << parameters.pipeline-param-map >>
-            }" "https://circleci.com/api/v2/project/${VCS_TYPE}/${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}/pipeline"
+            for NODE_VERSION in 8 10 12
+            do
+                PIIPELINE_PARAM_MAP="{\"run-main-workflow\": true, \"tag\":\"$NODE_VERSION\"}"
+                if [ "$NODE_VERSION" = << parameters.deploy-node-version >> ]
+                then
+                    PIIPELINE_PARAM_MAP="{\"run-main-workflow\": true, \"tag\":\"$NODE_VERSION\", \"run-deploy-job\": true}"
+                fi
+
+                curl -u ${CIRCLE_TOKEN}: -X POST --header "Content-Type: application/json" -d "{
+                  \"branch\": \"${CIRCLE_BRANCH}\",
+                  \"parameters\": ${PIIPELINE_PARAM_MAP}
+                }" "https://circleci.com/api/v2/project/${VCS_TYPE}/${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}/pipeline"
+            done
 
 workflows:
   version: 2
-  trigger-jobs:
+  matrix:
     unless: << pipeline.parameters.run-main-workflow >>
     jobs:
-      - trigger-jobs:
-          pipeline-param-map: |
-            {\"run-main-workflow\": true, \"tag\":\"8\"}
-      - trigger-jobs:
-          pipeline-param-map: |
-            {\"run-main-workflow\": true, \"tag\":\"10\", \"run-deploy\": true \}
-      - trigger-jobs:
-          pipeline-param-map: |
-            {\"run-main-workflow\": true, \"tag\":\"latest\"}
+      - trigger-main-workflows:
+          deploy-node-version: "10"
 
   main:
     when: << pipeline.parameters.run-main-workflow >>
@@ -444,6 +460,49 @@ workflows:
             - test-<< pipeline.parameters.tag >>
 ```
 
-ただし、APIを叩く必要があるため、これでもまだ他のCIでできるようなマトリックスビルドと比べれば、やぼったさは否めません。
+`trigger-jobs`ワークフローが、Node v8, v10, v12の実行環境において、それぞれ`main`ワークフローをトリガーします。
 
-[RFC: Matrix Jobs syntax](https://discuss.circleci.com/t/rfc-matrix-jobs-syntax/34468)を見ると、マトリックスビルドの開発が今まさに行われているようなので、正式サポートされるまではジョブパラメータかパイプラインパラメータを使ってしのぎましょう。
+Nodeバージョン×プラットフォームといったマトリックスビルドも可能です。
+
+[全文]()
+
+```yaml
+(略)
+  trigger-main-workflows:
+    machine:
+      image: ubuntu-1604:201903-01
+    parameters:
+      deploy-node-version:
+        default: '10'
+        type: string
+      deploy-platform:
+        default: linux
+        type: string
+    steps:
+      - run:
+          name: Trigger main worflow
+          command: |
+            VCS_TYPE=$(echo ${CIRCLE_BUILD_URL} | cut -d '/' -f 4)
+
+            for NODE_VERSION in 8 10 12
+            do
+                for PLATFORM in linux windows
+                do
+                    PIIPELINE_PARAM_MAP="{\"run-main-workflow\": true, \"tag\":\"$NODE_VERSION\", \"platform\":\"$PLATFORM\"}"
+                    if [ "$NODE_VERSION" = "<< parameters.deploy-node-version >>" ] && [ "$PLATFORM" = "<< parameters.deploy-platform >>" ]
+                    then
+                        PIIPELINE_PARAM_MAP="{\"run-main-workflow\": true, \"tag\":\"$NODE_VERSION\", \"platform\":\"$PLATFORM\", \"run-deploy-job\": true}"
+                    fi
+                    curl -u ${CIRCLE_TOKEN}: -X POST --header "Content-Type: application/json" -d "{
+                      \"branch\": \"${CIRCLE_BRANCH}\",
+                      \"parameters\": ${PIIPELINE_PARAM_MAP}
+                    }" "https://circleci.com/api/v2/project/${VCS_TYPE}/${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}/pipeline"
+                done
+            done
+```
+
+ただし、APIを叩く必要があるため、これでもまだ他のCIでできるようなマトリックスビルドと比べれば、やぼったさは否めません。また、デプロイジョブをすべてのワークフローが成功した場合のみ実行するしくみ(ファンイン)にすることが非常に難しく、APIを使ってビルド結果をポーリングするか、承認ジョブを使って目視で確認してから手動で起動にするしかなさそうです。
+
+([ファンアウト・ファンインについて](https://circleci.com/docs/ja/2.0/workflows/#%E3%83%95%E3%82%A1%E3%83%B3%E3%82%A4%E3%83%B3%E3%83%95%E3%82%A1%E3%83%B3%E3%82%A2%E3%82%A6%E3%83%88%E3%81%AE-workflow-%E3%81%AE%E4%BE%8B))
+
+[RFC: Matrix Jobs syntax](https://discuss.circleci.com/t/rfc-matrix-jobs-syntax/34468)を見ると、マトリックスビルドの開発が今まさに行われているようなので、正式サポートされるまではファンアウトだけならジョブパラメータ、ファンインが必要ならパイプラインパラメータが良さそうかな。
