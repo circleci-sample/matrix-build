@@ -36,7 +36,8 @@ commands:
             nvm install << pipeline.parameters.tag >>
             nvm use << pipeline.parameters.tag >>
 
-            npx check-node-version --print
+            npm install --global check-node-version
+            check-node-version --print
 
 version: 2.1
 jobs:
