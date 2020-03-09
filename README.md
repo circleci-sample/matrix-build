@@ -462,9 +462,9 @@ workflows:
 
 `trigger-jobs`ワークフローが、Node v8, v10, v12の実行環境において、それぞれ`main`ワークフローをトリガーします。
 
-Nodeバージョン×プラットフォームといったマトリックスビルドも可能です。
+Nodeバージョン×DBといったマトリックスも可能です。
 
-[全文]()
+[全文](https://github.com/circleci-sample/matrix-build/blob/master/.circleci/config.yml)
 
 ```yaml
 (略)
@@ -472,12 +472,6 @@ Nodeバージョン×プラットフォームといったマトリックスビ�
     machine:
       image: ubuntu-1604:201903-01
     parameters:
-      deploy-node-version:
-        default: '10'
-        type: string
-      deploy-platform:
-        default: linux
-        type: string
     steps:
       - run:
           name: Trigger main worflow
@@ -486,12 +480,12 @@ Nodeバージョン×プラットフォームといったマトリックスビ�
 
             for NODE_VERSION in 8 10 12
             do
-                for PLATFORM in linux windows
+                for DB in mongo mysql
                 do
-                    PIIPELINE_PARAM_MAP="{\"run-main-workflow\": true, \"tag\":\"$NODE_VERSION\", \"platform\":\"$PLATFORM\"}"
-                    if [ "$NODE_VERSION" = "<< parameters.deploy-node-version >>" ] && [ "$PLATFORM" = "<< parameters.deploy-platform >>" ]
+                    PIIPELINE_PARAM_MAP="{\"run-main-workflow\": true, \"tag\":\"$NODE_VERSION\", \"db\":\"$DB\"}"
+                    if [ "$NODE_VERSION" = "10" ] && [ "$DB" = "mongo" ]
                     then
-                        PIIPELINE_PARAM_MAP="{\"run-main-workflow\": true, \"tag\":\"$NODE_VERSION\", \"platform\":\"$PLATFORM\", \"run-deploy-job\": true}"
+                        PIIPELINE_PARAM_MAP="{\"run-main-workflow\": true, \"tag\":\"$NODE_VERSION\", \"db\":\"mongo\", \"run-deploy-job\": true}"
                     fi
                     curl -u ${CIRCLE_TOKEN}: -X POST --header "Content-Type: application/json" -d "{
                       \"branch\": \"${CIRCLE_BRANCH}\",
