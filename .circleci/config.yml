@@ -115,10 +115,10 @@ jobs:
             do
                 for PLATFORM in mac alpine linux
                 do
-                    PIIPELINE_PARAM_MAP="{\"run-main-workflow\": true, \"tag\":\"$NODE_VERSION\", \"plat-form\":\"$PLATFORM\"}"
+                    PIIPELINE_PARAM_MAP="{\"run-main-workflow\": true, \"tag\":\"$NODE_VERSION\", \"platform\":\"$PLATFORM\"}"
                     if [ "$NODE_VERSION" = << parameters.deploy-node-version >> ] && [ "$PLATFORM" = << parameters.deploy-platform >> ]
                     then
-                        PIIPELINE_PARAM_MAP="{\"run-main-workflow\": true, \"tag\":\"$NODE_VERSION\", \"plat-form\":\"$PLATFORM\", \"run-deploy-job\": true}"
+                        PIIPELINE_PARAM_MAP="{\"run-main-workflow\": true, \"tag\":\"$NODE_VERSION\", \"platform\":\"$PLATFORM\", \"run-deploy-job\": true}"
                     fi
                     curl -u ${CIRCLE_TOKEN}: -X POST --header "Content-Type: application/json" -d "{
                       \"branch\": \"${CIRCLE_BRANCH}\",
