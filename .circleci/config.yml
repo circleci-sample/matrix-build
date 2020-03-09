@@ -12,7 +12,7 @@ parameters:
     default: false
     type: boolean
   db:
-    default: mongodb
+    default: mongo
     type: string
 
 executors:
@@ -98,12 +98,12 @@ jobs:
 
             for NODE_VERSION in 8 10 12
             do
-                for DB in mongodb mysql
+                for DB in mongo mysql
                 do
                     PIIPELINE_PARAM_MAP="{\"run-main-workflow\": true, \"tag\":\"$NODE_VERSION\", \"DB\":\"$DB\"}"
-                    if [ "$NODE_VERSION" = "10" ] && [ "$DB" = "mongodb" ]
+                    if [ "$NODE_VERSION" = "10" ] && [ "$DB" = "mongo" ]
                     then
-                        PIIPELINE_PARAM_MAP="{\"run-main-workflow\": true, \"tag\":\"$NODE_VERSION\", \"db\":\"mongodb\", \"run-deploy-job\": true}"
+                        PIIPELINE_PARAM_MAP="{\"run-main-workflow\": true, \"tag\":\"$NODE_VERSION\", \"db\":\"mongo\", \"run-deploy-job\": true}"
                     fi
                     curl -u ${CIRCLE_TOKEN}: -X POST --header "Content-Type: application/json" -d "{
                       \"branch\": \"${CIRCLE_BRANCH}\",
