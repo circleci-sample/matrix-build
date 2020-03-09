@@ -4,9 +4,9 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "cross-env echo \"Test passed\"",
-    "build": "cross-env mkdir -p lib && node -v > lib/version.txt",
-    "deploy": "cross-env cat lib/version.txt && echo \"Successfully deployed :tada:\""
+    "test": "npx cross-env echo \"Test passed\"",
+    "build": "npx cross-env mkdir -p lib && node -v > lib/version.txt",
+    "deploy": "npx cross-env cat lib/version.txt && echo \"Successfully deployed :tada:\""
   },
   "repository": {
     "type": "git",
