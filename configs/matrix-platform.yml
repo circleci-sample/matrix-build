@@ -31,10 +31,9 @@ commands:
       - run:
           name: Install Node
           command: |
-            set +e
-
-            nvm install << pipeline.parameters.tag >>
-            nvm use << pipeline.parameters.tag >>
+            nvm install << pipeline.parameters.tag >> && \
+            nvm use << pipeline.parameters.tag >> && \
+            true
 
 version: 2.1
 jobs:
