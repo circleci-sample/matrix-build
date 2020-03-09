@@ -35,7 +35,6 @@ commands:
 
             nvm install << pipeline.parameters.tag >>
             nvm use << pipeline.parameters.tag >>
-            echo "Use Node.js $(node -v)"
 
 version: 2.1
 jobs:
@@ -100,7 +99,7 @@ jobs:
       - unless:
           condition: << pipeline.parameters.run-deploy-job >>
           steps:
-            - run: echo "No deployment on Node v<< pipeline.parameters.tag >>"
+            - run: echo "No deployment on Node v<< pipeline.parameters.tag >>, OS << pipeline.parameters.platform >>"
 
   trigger-main-workflows:
     machine:
@@ -147,7 +146,11 @@ workflows:
           name: build-<< pipeline.parameters.tag >>-on-<< pipeline.parameters.platform >>
       - test:
           name: test-<< pipeline.parameters.tag >>-on-<< pipeline.parameters.platform >>
+  deploy:
+    when: << pipeline.parameters.run-deploy-job >>
+    jobs:
+      - hold:
+          type: approval
       - deploy:
           requires:
-            - build-<< pipeline.parameters.tag >>-on-<< pipeline.parameters.platform >>
-            - test-<< pipeline.parameters.tag >>-on-<< pipeline.parameters.platform >>
+            - hold
