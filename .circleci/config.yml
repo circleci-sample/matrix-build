@@ -1,6 +1,5 @@
 orbs:
   node: circleci/node@1.1.6
-  windows: circleci/windows@2.4.0
 
 parameters:
   tag:
@@ -20,6 +19,11 @@ executors:
   linux:
     docker:
       - image: circleci/node:<< pipeline.parameters.tag >>
+  windows:
+    machine:
+      image: windows-server-2019-nvidia:stable
+      resource_class: windows.gpu.nvidia.medium
+      shell: bash.exe
 
 commands:
   install-node:
@@ -114,7 +118,7 @@ jobs:
 
             for NODE_VERSION in 8 10 12
             do
-                for PLATFORM in linux windows/default
+                for PLATFORM in linux windows
                 do
                     PIIPELINE_PARAM_MAP="{\"run-main-workflow\": true, \"tag\":\"$NODE_VERSION\", \"platform\":\"$PLATFORM\"}"
                     if [ "$NODE_VERSION" = "<< parameters.deploy-node-version >>" ] && [ "$PLATFORM" = "<< parameters.deploy-platform >>" ]
