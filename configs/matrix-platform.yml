@@ -27,7 +27,7 @@ commands:
       - run:
           name: Install Node
           command: |
-            if ["<< pipeline.parameters.platform >>" = "linux"]
+            if [ "<< pipeline.parameters.platform >>" = "linux" ]
             then
               echo "Skip installation"
             else
