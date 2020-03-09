@@ -100,7 +100,7 @@ jobs:
             do
                 for DB in mongo mysql
                 do
-                    PIIPELINE_PARAM_MAP="{\"run-main-workflow\": true, \"tag\":\"$NODE_VERSION\", \"DB\":\"$DB\"}"
+                    PIIPELINE_PARAM_MAP="{\"run-main-workflow\": true, \"tag\":\"$NODE_VERSION\", \"db\":\"$DB\"}"
                     if [ "$NODE_VERSION" = "10" ] && [ "$DB" = "mongo" ]
                     then
                         PIIPELINE_PARAM_MAP="{\"run-main-workflow\": true, \"tag\":\"$NODE_VERSION\", \"db\":\"mongo\", \"run-deploy-job\": true}"
