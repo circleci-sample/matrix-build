@@ -23,7 +23,7 @@ executors:
     machine:
       image: windows-server-2019-vs2019:stable
       resource_class: windows.medium
-      shell: powershell.exe
+      shell: bash.exe
 
 commands:
   install-node:
@@ -36,8 +36,7 @@ commands:
             nvm install << pipeline.parameters.tag >>
             nvm use << pipeline.parameters.tag >>
 
-            npm install --global check-node-version
-            check-node-version --print
+            npx check-node-version --print
 
 version: 2.1
 jobs:
