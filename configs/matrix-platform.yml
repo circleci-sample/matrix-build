@@ -11,40 +11,24 @@ parameters:
   run-deploy-job:
     default: false
     type: boolean
-  platform:
-    default: linux
+  db:
+    default: mongodb
     type: string
 
 executors:
-  linux:
+  default:
     docker:
       - image: circleci/node:<< pipeline.parameters.tag >>
-  windows:
-    machine:
-      image: windows-server-2019-vs2019:stable
-      resource_class: windows.medium
-      shell: powershell.exe
-
-commands:
-  install-node:
-    steps:
-      - run:
-          name: Install Node
-          command: |
-            set +e
-
-            nvm install << pipeline.parameters.tag >>
-            nvm use << pipeline.parameters.tag >>
-
-            npm install --global check-node-version
-            check-node-version --print
+  with_db:
+    docker:
+      - image: circleci/node:<< pipeline.parameters.tag >>
+      - image: circleci/<< pipeline.parameters.db >>
 
 version: 2.1
 jobs:
   install_deps:
-    executor: << pipeline.parameters.platform >>
+    executor: default
     steps:
-      - install-node
       - checkout
       - restore_cache:
           keys:
@@ -62,22 +46,22 @@ jobs:
             - node_modules
 
   test:
-    executor: << pipeline.parameters.platform >>
+    executor: with_db
     steps:
-      - install-node
       - checkout
       - attach_workspace:
           at: ./
       - run: npm run test
 
   build:
-    executor: << pipeline.parameters.platform >>
+    executor: default
     steps:
-      - install-node
       - checkout
       - attach_workspace:
           at: ./
       - run: npm run build
+      - store_artifacts:
+          path: lib
       - when:
           condition: << pipeline.parameters.run-deploy-job >>
           steps:
@@ -88,10 +72,8 @@ jobs:
                   - node_modules
 
   deploy:
-    docker:
-      - image: circleci/node:<< pipeline.parameters.tag >>
+    executor: default
     steps:
-      - install-node
       - when:
           condition: << pipeline.parameters.run-deploy-job >>
           steps:
@@ -102,18 +84,12 @@ jobs:
       - unless:
           condition: << pipeline.parameters.run-deploy-job >>
           steps:
-            - run: echo "No deployment on Node v<< pipeline.parameters.tag >>, OS << pipeline.parameters.platform >>"
+            - run: echo "No deployment on Node v<< pipeline.parameters.tag >>, DB << pipeline.parameters.db >>"
 
   trigger-main-workflows:
     machine:
       image: ubuntu-1604:201903-01
     parameters:
-      deploy-node-version:
-        default: '10'
-        type: string
-      deploy-platform:
-        default: linux
-        type: string
     steps:
       - run:
           name: Trigger main worflow
@@ -122,12 +98,12 @@ jobs:
 
             for NODE_VERSION in 8 10 12
             do
-                for PLATFORM in linux windows
+                for DB in mongodb mysql
                 do
-                    PIIPELINE_PARAM_MAP="{\"run-main-workflow\": true, \"tag\":\"$NODE_VERSION\", \"platform\":\"$PLATFORM\"}"
-                    if [ "$NODE_VERSION" = "<< parameters.deploy-node-version >>" ] && [ "$PLATFORM" = "<< parameters.deploy-platform >>" ]
+                    PIIPELINE_PARAM_MAP="{\"run-main-workflow\": true, \"tag\":\"$NODE_VERSION\", \"DB\":\"$DB\"}"
+                    if [ "$NODE_VERSION" = "10" ] && [ "$DB" = "mongodb" ]
                     then
-                        PIIPELINE_PARAM_MAP="{\"run-main-workflow\": true, \"tag\":\"$NODE_VERSION\", \"platform\":\"$PLATFORM\", \"run-deploy-job\": true}"
+                        PIIPELINE_PARAM_MAP="{\"run-main-workflow\": true, \"tag\":\"$NODE_VERSION\", \"db\":\"mongodb\", \"run-deploy-job\": true}"
                     fi
                     curl -u ${CIRCLE_TOKEN}: -X POST --header "Content-Type: application/json" -d "{
                       \"branch\": \"${CIRCLE_BRANCH}\",
@@ -146,9 +122,9 @@ workflows:
     when: << pipeline.parameters.run-main-workflow >>
     jobs:
       - build:
-          name: build-<< pipeline.parameters.tag >>-on-<< pipeline.parameters.platform >>
+          name: build-<< pipeline.parameters.tag >>-on-<< pipeline.parameters.db >>
       - test:
-          name: test-<< pipeline.parameters.tag >>-on-<< pipeline.parameters.platform >>
+          name: test-<< pipeline.parameters.tag >>-on-<< pipeline.parameters.db >>
   deploy:
     when: << pipeline.parameters.run-deploy-job >>
     jobs:
