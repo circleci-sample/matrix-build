@@ -93,10 +93,11 @@ jobs:
             for NODE_VERSION in 8 10 12
             do
                 PIIPELINE_PARAM_MAP="{\"run-main-workflow\": true, \"tag\":\"$NODE_VERSION\"}"
-                if [ "$NODE_VERSION" == << parameters.deploy-node-version >> ]
+                if [ "$NODE_VERSION" = << parameters.deploy-node-version >> ]
                 then
                     PIIPELINE_PARAM_MAP="{\"run-main-workflow\": true, \"tag\":\"$NODE_VERSION\", \"run-deploy-job\": true}"
                 fi
+                echo $PIIPELINE_PARAM_MAP
 
                 curl -u ${CIRCLE_TOKEN}: -X POST --header "Content-Type: application/json" -d "{
                   \"branch\": \"${CIRCLE_BRANCH}\",
