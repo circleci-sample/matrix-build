@@ -101,7 +101,7 @@ jobs:
 
                 curl -u ${CIRCLE_TOKEN}: -X POST --header "Content-Type: application/json" -d "{
                   \"branch\": \"${CIRCLE_BRANCH}\",
-                  \"parameters\": \"${PIIPELINE_PARAM_MAP}\"
+                  \"parameters\": ${PIIPELINE_PARAM_MAP}
                 }" "https://circleci.com/api/v2/project/${VCS_TYPE}/${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}/pipeline"
             done
 
